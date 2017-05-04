@@ -1,4 +1,4 @@
-application: apprtc
+application: apprtc-pwa
 version: 9
 runtime: python27
 threadsafe: true
@@ -12,6 +12,14 @@ handlers:
 - url: /manifest.json
   static_files: html/manifest.json
   upload: html/manifest.json
+
+- url: /sw.js
+  static_files: html/sw.js
+  upload: html/sw.js
+
+- url: /sw-lib.v0.0.17.min.js
+  static_files: html/sw-lib.v0.0.17.min.js
+  upload: html/sw-lib.v0.0.17.min.js
 
 - url: /robots.txt
   static_files: html/robot.txt

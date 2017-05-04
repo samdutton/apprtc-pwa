@@ -158,6 +158,7 @@ module.exports = function(grunt) {
             'src/web_app/js/remotewebsocket.js',
             'src/web_app/js/roomselection.js',
             'src/web_app/js/sdputils.js',
+            'src/web_app/js/serviceworker.js',
             'src/web_app/js/signalingchannel.js',
             'src/web_app/js/stats.js',
             'src/web_app/js/storage.js',

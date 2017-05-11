@@ -1,5 +1,3 @@
-application: apprtc-pwa
-version: 9
 runtime: python27
 threadsafe: true
 api_version: 1
@@ -24,6 +22,12 @@ handlers:
 - url: /robots.txt
   static_files: html/robot.txt
   upload: html/robots.txt
+
+- url: /callstats
+  static_dir: third_party/callstats
+
+- url: /pako
+  static_dir: third_party/pako
 
 - url: /images
   static_dir: images

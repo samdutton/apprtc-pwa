@@ -8,7 +8,7 @@
 
 /* More information about these options at jshint.com/docs/options */
 
-/* globals adapter, trace, InfoBox, setUpFullScreen, isFullScreen,
+/* globals trace, InfoBox, setUpFullScreen, isFullScreen,
    RoomSelection, isChromeApp, $ */
 /* exported AppController, remoteVideo */
 
@@ -200,9 +200,7 @@ AppController.prototype.showRoomSelection_ = function() {
   }.bind(this);
 };
 
-AppController.prototype.finishCallSetup_ = function(roomId) {
-  this.call_.start(roomId);
-
+AppController.prototype.setupUi_ = function() {
   this.iconEventSetup_();
   document.onkeypress = this.onKeyPress_.bind(this);
   window.onmousemove = this.showIcons_.bind(this);
@@ -213,6 +211,11 @@ AppController.prototype.finishCallSetup_ = function(roomId) {
   $(UI_CONSTANTS.hangupSvg).onclick = this.hangup_.bind(this);
 
   setUpFullScreen();
+};
+
+AppController.prototype.finishCallSetup_ = function(roomId) {
+  this.call_.start(roomId);
+  this.setupUi_();
 
   if (!isChromeApp()) {
     // Call hangup with async = false. Required to complete multiple
@@ -246,6 +249,9 @@ AppController.prototype.hangup_ = function() {
 
   // Call hangup with async = true.
   this.call_.hangup(true);
+  // Reset key and mouse event handlers.
+  document.onkeypress = null;
+  window.onmousemove = null;
 };
 
 AppController.prototype.onRemoteHangup_ = function() {
@@ -281,7 +287,7 @@ AppController.prototype.waitForRemoteVideo_ = function() {
 AppController.prototype.onRemoteStreamAdded_ = function(stream) {
   this.deactivate_(this.sharingDiv_);
   trace('Remote stream added.');
-  adapter.browserShim.attachMediaStream(this.remoteVideo_, stream);
+  this.remoteVideo_.srcObject = stream;
 
   if (this.remoteVideoResetTimer_) {
     clearTimeout(this.remoteVideoResetTimer_);
@@ -300,9 +306,7 @@ AppController.prototype.onLocalStreamAdded_ = function(stream) {
 
 AppController.prototype.attachLocalStream_ = function() {
   trace('Attaching local stream.');
-
-  // Call the polyfill wrapper to attach the media stream to this element.
-  adapter.browserShim.attachMediaStream(this.localVideo_, this.localStream_);
+  this.localVideo_.srcObject = this.localStream_;
 
   this.displayStatus_('');
   this.activate_(this.localVideo_);
@@ -326,7 +330,7 @@ AppController.prototype.transitionToActive_ = function() {
 
   // Prepare the remote video and PIP elements.
   trace('reattachMediaStream: ' + this.localVideo_.srcObject);
-  adapter.browserShim.reattachMediaStream(this.miniVideo_, this.localVideo_);
+  this.miniVideo_.srcObject = this.localVideo_.srcObject;
 
   // Transition opacity from 0 to 1 for the remote and mini videos.
   this.activate_(this.remoteVideo_);
@@ -383,6 +387,7 @@ AppController.prototype.onRejoinClick_ = function() {
   this.deactivate_(this.rejoinDiv_);
   this.hide_(this.rejoinDiv_);
   this.call_.restart();
+  this.setupUi_();
 };
 
 AppController.prototype.onNewRoomClick_ = function() {
@@ -420,6 +425,9 @@ AppController.prototype.onKeyPress_ = function(event) {
       return false;
     case 'q':
       this.hangup_();
+      return false;
+    case 'l':
+      this.toggleMiniVideo_();
       return false;
     default:
       return;
@@ -481,6 +489,14 @@ AppController.prototype.toggleFullScreen_ = function() {
   this.fullscreenIconSet_.toggle();
 };
 
+AppController.prototype.toggleMiniVideo_ = function() {
+  if (this.miniVideo_.classList.contains('active')) {
+    this.deactivate_(this.miniVideo_);
+  } else {
+    this.activate_(this.miniVideo_);
+  }
+};
+
 AppController.prototype.hide_ = function(element) {
   element.classList.add('hidden');
 };
@@ -514,8 +530,7 @@ AppController.prototype.setIconTimeout_ = function() {
   if (this.hideIconsAfterTimeout) {
     window.clearTimeout.bind(this, this.hideIconsAfterTimeout);
   }
-  this.hideIconsAfterTimeout =
-    window.setTimeout(function() {
+  this.hideIconsAfterTimeout = window.setTimeout(function() {
     this.hideIcons_();
   }.bind(this), 5000);
 };
@@ -531,9 +546,8 @@ AppController.prototype.iconEventSetup_ = function() {
 };
 
 AppController.prototype.loadUrlParams_ = function() {
-  /* jscs: disable */
-  /* jshint ignore:start */
-  // Suppressing jshint warns about using urlParams['KEY'] instead of
+  /* eslint-disable dot-notation */
+  // Suppressing eslint warns about using urlParams['KEY'] instead of
   // urlParams.KEY, since we'd like to use string literals to avoid the Closure
   // compiler renaming the properties.
   var DEFAULT_VIDEO_CODEC = 'VP9';
@@ -552,8 +566,7 @@ AppController.prototype.loadUrlParams_ = function() {
   this.loadingParams_.videoRecvBitrate = urlParams['vrbr'];
   this.loadingParams_.videoRecvCodec = urlParams['vrc'] || DEFAULT_VIDEO_CODEC;
   this.loadingParams_.videoFec = urlParams['videofec'];
-  /* jshint ignore:end */
-  /* jscs: enable */
+  /* eslint-enable dot-notation */
 };
 
 AppController.IconSet_ = function(iconSelector) {

@@ -25,7 +25,7 @@ var Call = function(params) {
 
   this.pcClient_ = null;
   this.localStream_ = null;
-
+  this.errorMessageQueue_ = [];
   this.startTime = null;
 
   // Public callbacks. Keep it sorted.
@@ -154,32 +154,32 @@ Call.prototype.hangup = function(async) {
   var steps = [];
   steps.push({
     step: function() {
-        // Send POST request to /leave.
-        var path = this.getLeaveUrl_();
-        return sendUrlRequest('POST', path, async);
-      }.bind(this),
+      // Send POST request to /leave.
+      var path = this.getLeaveUrl_();
+      return sendUrlRequest('POST', path, async);
+    }.bind(this),
     errorString: 'Error sending /leave:'
   });
   steps.push({
     step: function() {
-        // Send bye to the other client.
-        this.channel_.send(JSON.stringify({type: 'bye'}));
-      }.bind(this),
+      // Send bye to the other client.
+      this.channel_.send(JSON.stringify({type: 'bye'}));
+    }.bind(this),
     errorString: 'Error sending bye:'
   });
   steps.push({
     step: function() {
-        // Close signaling channel.
-        return this.channel_.close(async);
-      }.bind(this),
+      // Close signaling channel.
+      return this.channel_.close(async);
+    }.bind(this),
     errorString: 'Error closing signaling channel:'
   });
   steps.push({
     step: function() {
-        this.params_.previousRoomId = this.params_.roomId;
-        this.params_.roomId = null;
-        this.params_.clientId = null;
-      }.bind(this),
+      this.params_.previousRoomId = this.params_.roomId;
+      this.params_.roomId = null;
+      this.params_.clientId = null;
+    }.bind(this),
     errorString: 'Error setting params:'
   });
 
@@ -194,27 +194,26 @@ Call.prototype.hangup = function(async) {
     }
 
     return promise;
-  } else {
-    // Execute the cleanup steps.
-    var executeStep = function(executor, errorString) {
-      try {
-        executor();
-      } catch (ex) {
-        trace(errorString + ' ' + ex);
-      }
-    };
-
-    for (var j = 0; j < steps.length; ++j) {
-      executeStep(steps[j].step, steps[j].errorString);
-    }
-
-    if (this.params_.roomId !== null || this.params_.clientId !== null) {
-      trace('ERROR: sync cleanup tasks did not complete successfully.');
-    } else {
-      trace('Cleanup completed.');
-    }
-    return Promise.resolve();
   }
+  // Execute the cleanup steps.
+  var executeStep = function(executor, errorString) {
+    try {
+      executor();
+    } catch (ex) {
+      trace(errorString + ' ' + ex);
+    }
+  };
+
+  for (var j = 0; j < steps.length; ++j) {
+    executeStep(steps[j].step, steps[j].errorString);
+  }
+
+  if (this.params_.roomId !== null || this.params_.clientId !== null) {
+    trace('ERROR: sync cleanup tasks did not complete successfully.');
+  } else {
+    trace('Cleanup completed.');
+  }
+  return Promise.resolve();
 };
 
 Call.prototype.getLeaveUrl_ = function() {
@@ -261,6 +260,8 @@ Call.prototype.toggleVideoMute = function() {
   for (var i = 0; i < videoTracks.length; ++i) {
     videoTracks[i].enabled = !videoTracks[i].enabled;
   }
+  this.pcClient_.sendCallstatsEvents(
+      (videoTracks[0].enabled ? 'videoResume' : 'videoPause'));
 
   trace('Video ' + (videoTracks[0].enabled ? 'unmuted.' : 'muted.'));
 };
@@ -276,7 +277,8 @@ Call.prototype.toggleAudioMute = function() {
   for (var i = 0; i < audioTracks.length; ++i) {
     audioTracks[i].enabled = !audioTracks[i].enabled;
   }
-
+  this.pcClient_.sendCallstatsEvents(
+      (audioTracks[0].enabled ? 'audioUnmute' : 'audioMute'));
   trace('Audio ' + (audioTracks[0].enabled ? 'unmuted.' : 'muted.'));
 };
 
@@ -301,14 +303,12 @@ Call.prototype.connectToRoom_ = function(roomId) {
         // The only difference in parameters should be clientId and isInitiator,
         // and the turn servers that we requested.
         // TODO(tkchin): clean up response format. JSHint doesn't like it.
-        /* jshint ignore:start */
-        //jscs:disable requireCamelCaseOrUpperCaseIdentifiers
+
         this.params_.clientId = roomParams.client_id;
         this.params_.roomId = roomParams.room_id;
         this.params_.roomLink = roomParams.room_link;
         this.params_.isInitiator = roomParams.is_initiator === 'true';
-        //jscs:enable requireCamelCaseOrUpperCaseIdentifiers
-        /* jshint ignore:end */
+
         this.params_.messages = roomParams.messages;
       }.bind(this)).catch(function(error) {
         this.onError_('Room server join error: ' + error.message);
@@ -353,6 +353,24 @@ Call.prototype.maybeGetMedia_ = function() {
     var mediaConstraints = this.params_.mediaConstraints;
 
     mediaPromise = navigator.mediaDevices.getUserMedia(mediaConstraints)
+    .catch(function(error) {
+      if (error.name !== 'NotFoundError') {
+        throw error;
+      }
+      return navigator.mediaDevices.enumerateDevices().then(function(devices) {
+        var cam = devices.find(function(device) {
+          return device.kind === 'videoinput';
+        });
+        var mic = devices.find(function(device) {
+          return device.kind === 'audioinput';
+        });
+        var constraints = {
+          video: cam && mediaConstraints.video,
+          audio: mic && mediaConstraints.audio
+        };
+        return navigator.mediaDevices.getUserMedia(constraints);
+      });
+    })
     .then(function(stream) {
       trace('Got access to local media with mediaConstraints:\n' +
           '  \'' + JSON.stringify(mediaConstraints) + '\'');
@@ -372,7 +390,9 @@ Call.prototype.maybeGetMedia_ = function() {
 Call.prototype.maybeGetIceServers_ = function() {
   var shouldRequestIceServers =
       (this.params_.iceServerRequestUrl &&
-      this.params_.iceServerRequestUrl.length > 0);
+      this.params_.iceServerRequestUrl.length > 0 &&
+      this.params_.turnServerOverride &&
+      this.params_.turnServerOverride.length === 0);
 
   var iceServerPromise = null;
   if (shouldRequestIceServers) {
@@ -398,7 +418,18 @@ Call.prototype.maybeGetIceServers_ = function() {
           trace(error.message);
         }.bind(this));
   } else {
-    iceServerPromise = Promise.resolve();
+    if (this.params_.turnServerOverride &&
+        this.params_.turnServerOverride.length === 0) {
+      iceServerPromise = Promise.resolve();
+    } else {
+      // if turnServerOverride is not empty it will be used for
+      // turn/stun servers.
+      iceServerPromise = new Promise(function(resolve) {
+        this.params_.peerConnectionConfig.iceServers =
+            this.params_.turnServerOverride;
+        resolve();
+      }.bind(this));
+    }
   }
   return iceServerPromise;
 };
@@ -414,7 +445,20 @@ Call.prototype.onUserMediaError_ = function(error) {
   var errorMessage = 'Failed to get access to local media. Error name was ' +
       error.name + '. Continuing without sending a stream.';
   this.onError_('getUserMedia error: ' + errorMessage);
+  this.errorMessageQueue_.push(error);
   alert(errorMessage);
+};
+
+// TODO(jansson) Change this to a generic reporting method when callstats
+// supports custom errors. Then we can send in signalling errors etc.
+Call.prototype.maybeReportGetUserMediaErrors_ = function() {
+  if (this.errorMessageQueue_.length > 0) {
+    for (var errorMsg = 0;
+        errorMsg < this.errorMessageQueue_.length; errorMsg++) {
+      this.pcClient_.reportErrorToCallstats('getUserMedia',
+          this.errorMessageQueue_[errorMsg]);
+    }
+  }
 };
 
 Call.prototype.maybeCreatePcClientAsync_ = function() {
@@ -476,9 +520,10 @@ Call.prototype.startSignaling_ = function() {
     } else {
       this.pcClient_.startAsCallee(this.params_.messages);
     }
+    this.maybeReportGetUserMediaErrors_();
   }.bind(this))
   .catch(function(e) {
-    this.onError_('Create PeerConnection exception: ' + e.message);
+    this.onError_('Create PeerConnection exception: ' + e);
     alert('Cannot create RTCPeerConnection: ' + e.message);
   }.bind(this));
 };
@@ -499,9 +544,15 @@ Call.prototype.joinRoom_ = function() {
         return;
       }
       if (responseObj.result !== 'SUCCESS') {
-        // TODO (chuckhays) : handle room full state by returning to room selection state.
+        // TODO (chuckhays) : handle room full state by returning to room
+        // selection state.
         // When room is full, responseObj.result === 'FULL'
         reject(Error('Registration error: ' + responseObj.result));
+        if (responseObj.result === 'FULL') {
+          var getPath = this.roomServer_ + '/r/' +
+              this.params_.roomId + window.location.search;
+          window.location.assign(getPath);
+        }
         return;
       }
       trace('Joined the room.');

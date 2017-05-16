@@ -45,6 +45,8 @@ function formatTypePreference(pref) {
         return 'TURN/TCP';
       case 2:
         return 'TURN/UDP';
+      default:
+        break;
     }
   } else if (adapter.browserDetails.browser === 'firefox') {
     switch (pref) {
@@ -52,6 +54,8 @@ function formatTypePreference(pref) {
         return 'TURN/TCP';
       case 5:
         return 'TURN/UDP';
+      default:
+        break;
     }
   }
   return '';
@@ -193,7 +197,7 @@ function maybeSetVideoSendInitialBitRate(sdp, params) {
     return sdp;
   }
 
-  var codec =  params.videoRecvCodec;
+  var codec = params.videoRecvCodec;
   sdp = setCodecParam(sdp, codec, 'x-google-min-bitrate',
       params.videoSendInitialBitrate.toString());
   sdp = setCodecParam(sdp, codec, 'x-google-max-bitrate',
@@ -248,7 +252,7 @@ function removeCodecByPayloadType(sdpLines, payloadType) {
 }
 
 function maybeRemoveVideoFec(sdp, params) {
-  if (params.videoFec === 'true') {
+  if (params.videoFec !== 'false') {
     return sdp;
   }
 
@@ -460,7 +464,7 @@ function getCodecPayloadType(sdpLines, codec) {
 
 // Gets the codec payload type from an a=rtpmap:X line.
 function getCodecPayloadTypeFromLine(sdpLine) {
-  var pattern = new RegExp('a=rtpmap:(\\d+) \\w+\\/\\d+');
+  var pattern = new RegExp('a=rtpmap:(\\d+) [a-zA-Z0-9-]+\\/\\d+');
   var result = sdpLine.match(pattern);
   return (result && result.length === 2) ? result[1] : null;
 }

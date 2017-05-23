@@ -189,6 +189,7 @@ AppController.prototype.showRoomSelection_ = function() {
   // No need to hide roomSelectionDiv
   // and showing it on page load speeds time-to-interactive
   // so next line now commented.
+
   // this.show_(roomSelectionDiv);
   this.roomSelection_.onRoomSelected = function(roomName) {
     this.hide_(roomSelectionDiv);

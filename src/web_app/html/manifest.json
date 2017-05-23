@@ -1,6 +1,6 @@
 {
-  "short_name": "AppRTC",
-  "name": "WebRTC reference app",
+  "background_color": "white",
+  "display": "standalone",
   "icons": [
     {
       "src": "/images/webrtc-icon-192x192.png",
@@ -8,7 +8,9 @@
       "type": "image/png"
     }
   ],
+  "name": "WebRTC reference app",
+  "orientation": "portrait",
+  "short_name": "AppRTC",
   "start_url": "/",
-  "display": "standalone",
-  "orientation": "portrait"
+  "theme_color": "white"
 }

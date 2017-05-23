@@ -1,11 +1,13 @@
 runtime: python27
 threadsafe: true
 api_version: 1
+default_expiration: "365d"
 
 handlers:
 - url: /(.*\.html)
   static_files: html/\1
   upload: html/(.*\.html)
+  secure: always
 
 - url: /manifest.json
   static_files: html/manifest.json
@@ -22,6 +24,10 @@ handlers:
 - url: /robots.txt
   static_files: html/robot.txt
   upload: html/robots.txt
+
+- url: /js/init.js
+  static_files: html/init.js
+  upload: html/init.js
 
 - url: /callstats
   static_dir: third_party/callstats

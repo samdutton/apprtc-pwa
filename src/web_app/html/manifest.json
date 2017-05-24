@@ -2,7 +2,6 @@
   "background_color": "white",
   "display": "standalone",
   "icons": [
-    "icons": [
     {
     "src": "/images/apprtc-256.png",
     "sizes": "256x256",

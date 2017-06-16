@@ -21,7 +21,14 @@ if (document.visibilityState === 'prerender') {
   document.addEventListener('visibilitychange', onVisibilityChange);
   return;
 }
-appController = new AppController(loadingParams);
+  appController = new AppController(loadingParams);
+
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.register("/sw.js")["catch"](function(err) {
+      console.error("Service worker: unable to register", err);
+    });
+  }
+
 }
 
 function onVisibilityChange() {

@@ -1,49 +1,58 @@
-importScripts('sw-lib.v0.0.17.min.js');
+/*
+  Copyright 2017 Google Inc. All Rights Reserved.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+*/
 
-/**
- * DO NOT EDIT THE FILE MANIFEST ENTRY
- *
- * The method cacheRevisionedAssets() does the following:
- * 1. Cache URLs in the manifest to a local cache.
- * 2. When a network request is made for any of these URLs the response
- *    will ALWAYS comes from the cache, NEVER the network.
- * 3. When the service worker changes ONLY assets with a revision change are
- *    updated, old cache entries are left as is.
- *
- * By changing the file manifest manually, your users may end up not receiving
- * new versions of files because the revision hasn't changed.
- *
- * Please use sw-build or some other tool / approach to generate the file
- * manifest which accounts for changes to local files and update the revision
- * accordingly.
- */
-
-
-var fileManifest = [
-  {
-    "url": "/css/main.css",
-    "revision": "db3dada626bebc92f4c5e8f2936c1dd2"
-  },
-  // {
-  //   "url": "/",
-  //   "revision": "7dc407e58660c800a9ca28a2cf5fb4c7"
-  // },
-  {
-    "url": "/js/apprtc.debug.js",
-    "revision": "0ca21f4e2275b396cf45b921a35ede15"
-  },
-  {
-    "url": "/callstats/callstats.min.js",
-    "revision": "81863ea3082ba9de1a1950decc7705ad"
-  },
-  {
-    "url": "/callstats/sha.js",
-    "revision": "ba3aed01c02036a0b702cf953cb84dac"
-  },
-  {
-    "url": "/callstats/socket.io.js",
-    "revision": "98e2b926a3c7a7dda9e43721d9213a3a"
-  }
+const FILES = [
+  '/',
+  'js/apprtc.debug.js',
+  'js/init.js',
+  '/callstats/callstats.min.js',
+  '/callstats/sha.js',
+  '/callstats/socket.io.js'
 ];
 
-self.goog.swlib.cacheRevisionedAssets(fileManifest);
+self.addEventListener('install', (event) => {
+  console.log('Service worker:', event);
+  event.waitUntil(installHandler(event));
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('Service worker:', event);
+  clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  console.log('Service worker:', event);
+  event.respondWith(fetchHandler(event.request));
+});
+
+async function installHandler(event) {
+  const cache = await caches.open('v1');
+  cache.addAll(FILES);
+  self.skipWaiting();
+}
+
+async function fetchHandler(request) {
+  if (request.method !== 'GET') {
+    return fetch(request);
+  }
+  const cache = await caches.open('v1');
+  const cacheResult = await cache.match(request);
+  if (cacheResult) {
+    return cacheResult;
+  }
+  const fetchResult = await fetch(request);
+  if (fetchResult.ok) {
+    cache.put(request, fetchResult.clone());
+  }
+  return fetchResult;
+}

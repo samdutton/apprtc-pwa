@@ -6,12 +6,12 @@
  *  that can be found in the LICENSE file in the root of the source
  *  tree.
 -->
-<html>
+<html lang="en">
 <head>
 
   <meta charset="utf-8">
   <meta name="description" content="WebRTC reference app">
-  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width,minimum-scale=1.0">
   <meta itemprop="description" content="Video chat using the reference WebRTC application">
   <meta itemprop="image" content="/images/apprtc-256.png">
   <meta itemprop="name" content="AppRTC">
@@ -127,7 +127,6 @@ div#privacy {
 }
 
 div#privacy a {
-  color: gray;
   font-size: 14px;
 }
 
@@ -430,7 +429,7 @@ svg:hover {
   <!--  class="hidden" now removed: no need to hide this div -->
   <div id="room-selection">
     <h1>AppRTC</h1>
-    <p id="instructions">Please enter a room name.</p>
+    <label for="room-id-input" id="instructions">Please enter a room name:</label>
     <div>
       <div id="room-id-input-div">
         <input type="text" id="room-id-input" autofocus/>
@@ -454,7 +453,7 @@ svg:hover {
 
   <footer>
     <div id="sharing-div">
-      <div id="room-link">Waiting for someone to join this room: <a id="room-link-href" href="{{ room_link }}" target="_blank">{{ room_link }}</a></div>
+      <div id="room-link">Waiting for someone to join this room: <a id="room-link-href" href="{{ room_link }}" rel="noopener" target="_blank">{{ room_link }}</a></div>
     </div>
     <div id="info-div">Code for AppRTC is available from <a href="http://github.com/webrtc/apprtc" title="GitHub repo for AppRTC">github.com/webrtc/apprtc</a></div>
     <div id="status-div"></div>
